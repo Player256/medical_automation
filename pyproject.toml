@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "medical_automation"
+version = "0.1.0"
+description = "EMR multi-agent demo (LangGraph + Supervisor + Gradio)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+"langgraph>=0.2.0",
+"langchain-core>=0.3.0",
+"langchain-google-genai>=2.0.0",
+"langgraph-supervisor>=0.0.29",
+"gradio>=4.0.0",
+"python-dotenv>=1.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["medical_automation*"]
+
+[tool.setuptools]
+include-package-data = true
