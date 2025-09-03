@@ -10,7 +10,6 @@ system_prompt = "You are a helpful medical assistant."
 
 
 def stream_response(message, history):
-
     msgs = [SystemMessage(system_prompt)]
     for human, ai in history or []:
         if human:
@@ -23,15 +22,17 @@ def stream_response(message, history):
     state_input = {"messages": msgs}
 
     partial = ""
-    for msg_chunk, meta in agent.stream(
+    for msg_chunk, _ in agent.stream(
         state_input,
         stream_mode="messages",
-        subgraphs=True,
     ):
         content = getattr(msg_chunk, "content", None)
         if content:
             partial += content if isinstance(content, str) else str(content)
             yield partial
+
+    if not partial:
+        yield "No response from agent."
 
 
 demo = gr.ChatInterface(

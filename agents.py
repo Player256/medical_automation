@@ -28,10 +28,4 @@ supervisor_agent = create_supervisor(
 
 
 def build_agent_system():
-    graph = StateGraph(MessagesState)
-    graph.add_node(START, supervisor_agent)
-    graph.add_node(db_agent)
-    graph.add_edge(supervisor_agent, db_agent)
-    graph.add_edge(supervisor_agent, END)
-
-    return graph.compile()
+    return supervisor_agent.compile()

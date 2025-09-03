@@ -6,17 +6,18 @@ from .db_connection import get_db
 
 @tool
 def fetch_patient_record(patient_info: Dict[str, Any]) -> Any:
+    """Fetch a patient record from the database using first name, last name, DOB, and email."""
     try:
         db = next(get_db())
         query = text(
             """
-                    Select * from patients
-                    where first_name = :first_name
-                        and last_name = :last_name
-                        and dob = :dob
-                        and email = :email
-                        limit 1
-                    """
+            SELECT * FROM patients
+            WHERE first_name = :first_name
+              AND last_name = :last_name
+              AND dob = :dob
+              AND email = :email
+            LIMIT 1
+            """
         )
         patient = db.execute(
             query,
@@ -31,15 +32,17 @@ def fetch_patient_record(patient_info: Dict[str, Any]) -> Any:
     except Exception as e:
         return f"Error fetching patient record: {str(e)}"
 
+
 @tool
 def insert_patient_record(patient_data: Dict[str, Any]) -> str:
+    """Insert a new patient record into the database with first name, last name, DOB, email, and phone."""
     try:
         db = next(get_db())
         insert_query = text(
             """
-            INSERT INTO patients (first_name, last_name, dob, email, phone)
+            INSERT INTO patients (first_name, last_name, dob, email, phone, patient_type)
             VALUES (:first_name, :last_name, :dob, :email, :phone, :patient_type)
-            RETURNING id
+            RETURNING patient_id
             """
         )
         result = db.execute(
