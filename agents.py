@@ -30,7 +30,7 @@ scheduling_agent = create_react_agent(
 
 supervisor_agent = create_supervisor(
     model=llm,
-    agents=[db_agent],
+    agents=[db_agent, scheduling_agent],
     name="Supervisor Agent",
     prompt=SUPERVISOR_PROMPT,
 )

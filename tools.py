@@ -10,10 +10,10 @@ class PatientInfo(BaseModel):
     last_name: str
     dob: str  
     email: str
-    
+
 class Doctor(BaseModel):
     speciality: str
-    
+
 
 @tool
 def fetch_patient_record(patient_info: PatientInfo) -> Any:
@@ -91,16 +91,27 @@ def insert_patient_record(patient_data: Dict[str, Any]) -> str:
 
 @tool
 def fetch_doctors_by_specialty(specialty: str):
-    db = next(get_db())
-    doctors = db.query(Doctor).filter(Doctor.specialty.ilike(f"%{specialty}%")).all()
-    return {
-        "doctors": [
+    """Fetch doctors by specialty with their Calendly links."""
+    try:
+        db = next(get_db())
+        query = text(
+        """
+        SELECT first_name, last_name, specialty, calendly_30_url, calendly_60_url
+        FROM doctors
+        WHERE specialty ILIKE :specialty
+        """
+        )
+        rows = db.execute(query, {"specialty": f"%{specialty}%"}).fetchall()
+        doctors = []
+        for row in rows:
+            doctors.append(
             {
-                "name": f"{doc.first_name} {doc.last_name}",
-                "specialty": doc.specialty,
-                "calendly_30_url": doc.calendly_30,
-                "calendly_60_url": doc.calendly_60,
+            "name": f"{row.first_name} {row.last_name}",
+            "specialty": row.specialty,
+            "calendly_30_url": getattr(row, "calendly_30_url", None),
+            "calendly_60_url": getattr(row, "calendly_60_url", None),
             }
-            for doc in doctors
-        ]
-    }
+            )
+        return {"doctors": doctors}
+    except Exception as e:
+        return {"error": f"Error fetching doctors: {str(e)}"}
