@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from langgraph.prebuilt import create_react_agent
 from langgraph_supervisor import create_supervisor
 
@@ -10,7 +11,7 @@ from .prompts import DB_PROMPT
 
 load_dotenv()
 
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+llm = ChatOllama(model="qwen3:1.7b")
 
 db_agent = create_react_agent(
     model=llm,

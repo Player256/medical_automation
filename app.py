@@ -1,3 +1,4 @@
+# hey check out john doe dob:1985-2-14 email: john.doe@example.com
 import gradio as gr
 import dotenv
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
@@ -7,7 +8,6 @@ dotenv.load_dotenv()
 
 agent = build_agent_system()
 system_prompt = "You are a helpful medical assistant."
-
 
 def stream_response(message, history):
     msgs = [SystemMessage(system_prompt)]
