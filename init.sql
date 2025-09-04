@@ -1,3 +1,5 @@
+-- docker exec -it 3d5a6d31c721 psql -U user -d medical_db
+-- Patients table
 CREATE TABLE patients (
     patient_id SERIAL PRIMARY KEY,
     first_name VARCHAR(50) NOT NULL,
@@ -6,43 +8,37 @@ CREATE TABLE patients (
     gender VARCHAR(10),
     phone VARCHAR(20) NOT NULL,
     email VARCHAR(100) NOT NULL,
-    UNIQUE(first_name, last_name, dob,email), 
+    UNIQUE(first_name, last_name, dob, email),
     patient_type VARCHAR(20) CHECK(patient_type IN ('new','returning'))
 );
 
+-- Insurance table
 CREATE TABLE insurance(
     insurance_id SERIAL PRIMARY KEY,
-    patient_id INT REFERENCES patients(patient_id) on DELETE CASCADE,
+    patient_id INT REFERENCES patients(patient_id) ON DELETE CASCADE,
     carrier VARCHAR(100) NOT NULL,
     member_id VARCHAR(50) NOT NULL,
     group_number VARCHAR(50),
     is_primary BOOLEAN DEFAULT TRUE
 );
 
+-- Doctors table
 CREATE TABLE doctors(
     doctor_id SERIAL PRIMARY KEY,
     first_name VARCHAR(50) NOT NULL,
     last_name VARCHAR(50) NOT NULL,
     specialty VARCHAR(100),
-    phone VARCHAR(20),
-    email VARCHAR(100)
+    phone TEXT,
+    email VARCHAR(100),
+    calendly_30_url TEXT,
+    calendly_60_url TEXT
 );
 
-CREATE TABLE doctor_schedules(
-    schedule_id SERIAL PRIMARY KEY,
-    doctor_id INT REFERENCES doctors(doctor_id) on DELETE CASCADE,
-    available_date DATE NOT NULL,
-    start_time TIME NOT NULL,
-    end_time TIME NOT NULL,
-    UNIQUE(doctor_id, available_date, start_time),
-    is_booked BOOLEAN DEFAULT FALSE
-);
-
+-- Appointments table
 CREATE TABLE appointments(
     appointment_id SERIAL PRIMARY KEY,
-    patient_id INT REFERENCES patients(patient_id) on DELETE CASCADE,
-    doctor_id INT REFERENCES doctors(doctor_id) on DELETE CASCADE,
-    schedule_id INT REFERENCES doctor_schedules(schedule_id) on DELETE CASCADE,
+    patient_id INT REFERENCES patients(patient_id) ON DELETE CASCADE,
+    doctor_id INT REFERENCES doctors(doctor_id) ON DELETE CASCADE,
     appointment_date DATE NOT NULL,
     appointment_time TIME NOT NULL,
     appointment_duration INT NOT NULL CHECK (appointment_duration IN (30,60)),
@@ -51,14 +47,16 @@ CREATE TABLE appointments(
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Reminders table
 CREATE TABLE reminders(
     reminder_id SERIAL PRIMARY KEY,
-    appointment_id INT REFERENCES appointments(appointment_id) on DELETE CASCADE,
+    appointment_id INT REFERENCES appointments(appointment_id) ON DELETE CASCADE,
     reminder_number INT CHECK(reminder_number IN (1,2,3)),
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     response VARCHAR(50) CHECK(response IN ('confirmed','form_pending','cancelled'))
 );
 
+-- Patients seed data
 INSERT INTO patients (first_name, last_name, dob, gender, phone, email, patient_type) VALUES
 ('John', 'Doe', '1985-02-14', 'Male', '555-123-1111', 'john.doe@example.com', 'returning'),
 ('Jane', 'Smith', '1990-07-22', 'Female', '555-123-2222', 'jane.smith@example.com', 'new'),
@@ -81,7 +79,7 @@ INSERT INTO patients (first_name, last_name, dob, gender, phone, email, patient_
 ('Benjamin', 'Clark', '1979-01-08', 'Male', '555-321-1112', 'ben.clark@example.com', 'returning'),
 ('Amelia', 'Rodriguez', '1994-05-21', 'Female', '555-321-1212', 'amelia.rodriguez@example.com', 'new');
 
-
+-- Insurance seed data
 INSERT INTO insurance (patient_id, carrier, member_id, group_number, is_primary) VALUES
 (1, 'BlueCross', 'BC12345', '1001', TRUE),
 (2, 'Aetna', 'AE56789', '2002', TRUE),
@@ -104,6 +102,7 @@ INSERT INTO insurance (patient_id, carrier, member_id, group_number, is_primary)
 (19, 'Cigna', 'CI11122', '1919', TRUE),
 (20, 'Humana', 'HU22233', '2020', TRUE);
 
+-- Doctors seed data
 INSERT INTO doctors (first_name, last_name, specialty, phone, email) VALUES
 ('Alice', 'Williams', 'Allergist', '555-321-1111', 'alice.williams@clinic.com'),
 ('Robert', 'Brown', 'Pulmonologist', '555-321-2222', 'robert.brown@clinic.com'),
@@ -126,39 +125,18 @@ INSERT INTO doctors (first_name, last_name, specialty, phone, email) VALUES
 ('Jessica', 'Parker', 'Gynecologist', '555-321-3031', 'jessica.parker@clinic.com'),
 ('Brian', 'Evans', 'General Physician', '555-321-3233', 'brian.evans@clinic.com');
 
-INSERT INTO doctor_schedules (doctor_id, available_date, start_time, end_time, is_booked) VALUES
-(1, '2025-09-05', '09:00', '15:00', FALSE),
-(2, '2025-09-05', '10:00', '17:00', FALSE),
-(3, '2025-09-05', '08:00', '14:00', FALSE),
-(4, '2025-09-05', '12:00', '18:00', FALSE),
-(5, '2025-09-05', '09:00', '16:00', FALSE),
-(6, '2025-09-05', '11:00', '17:00', FALSE),
-(7, '2025-09-05', '07:00', '13:00', FALSE),
-(8, '2025-09-05', '13:00', '19:00', FALSE),
-(9, '2025-09-05', '09:00', '15:00', FALSE),
-(10, '2025-09-05', '10:00', '16:00', FALSE),
-(11, '2025-09-05', '08:00', '14:00', FALSE),
-(12, '2025-09-05', '12:00', '19:00', FALSE),
-(13, '2025-09-05', '09:00', '15:00', FALSE),
-(14, '2025-09-05', '11:00', '17:00', FALSE),
-(15, '2025-09-05', '07:00', '13:00', FALSE),
-(16, '2025-09-05', '13:00', '19:00', FALSE),
-(17, '2025-09-05', '09:00', '15:00', FALSE),
-(18, '2025-09-05', '10:00', '17:00', FALSE),
-(19, '2025-09-05', '08:00', '14:00', FALSE),
-(20, '2025-09-05', '12:00', '18:00', FALSE);
+-- Appointments seed data
+INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, appointment_duration, reason, status) VALUES
+(1, 1, '2025-09-05', '09:30', 30, 'Follow-up on allergies', 'scheduled'),
+(2, 2, '2025-09-05', '10:30', 60, 'Respiratory issues', 'scheduled'),
+(3, 3, '2025-09-05', '08:30', 30, 'Heart checkup', 'scheduled'),
+(4, 4, '2025-09-05', '12:30', 30, 'Skin rash consultation', 'scheduled'),
+(5, 5, '2025-09-05', '09:30', 30, 'Thyroid follow-up', 'scheduled');
 
-INSERT INTO appointments (patient_id, doctor_id, schedule_id, appointment_date, appointment_time, appointment_duration, reason, status) VALUES
-(1, 1, 1, '2025-09-05', '09:30', 30, 'Follow-up on allergies', 'scheduled'),
-(2, 2, 2, '2025-09-05', '10:30', 60, 'Respiratory issues', 'scheduled'),
-(3, 3, 3, '2025-09-05', '08:30', 30, 'Heart checkup', 'scheduled'),
-(4, 4, 4, '2025-09-05', '12:30', 30, 'Skin rash consultation', 'scheduled'),
-(5, 5, 5, '2025-09-05', '09:30', 30, 'Thyroid follow-up', 'scheduled');
-
+-- Reminders seed data
 INSERT INTO reminders (appointment_id, reminder_number, response) VALUES
 (1, 1, 'confirmed'),
 (2, 1, 'form_pending'),
 (3, 1, 'confirmed'),
 (4, 1, 'form_pending'),
 (5, 1, 'confirmed');
-

@@ -8,9 +8,12 @@ from pydantic import BaseModel
 class PatientInfo(BaseModel):
     first_name: str
     last_name: str
-    dob: str  # Date of Birth in 'YYYY-MM-DD' format
+    dob: str  
     email: str
-
+    
+class Doctor(BaseModel):
+    speciality: str
+    
 
 @tool
 def fetch_patient_record(patient_info: PatientInfo) -> Any:
@@ -48,7 +51,7 @@ def fetch_patient_record(patient_info: PatientInfo) -> Any:
                     "phone": patient.phone,
                     "patient_type": patient.patient_type,
                 },
-                "message": "Patient record found." 
+                "message": "Patient record found. It is therefore a returning patient." 
             }
         else:
             return {"exists": False, "message": "No matching patient record found."}
@@ -84,3 +87,20 @@ def insert_patient_record(patient_data: Dict[str, Any]) -> str:
         return f"New patient record inserted with ID: {new_id}"
     except Exception as e:
         return f"Error inserting patient record: {str(e)}"
+
+
+@tool
+def fetch_doctors_by_specialty(specialty: str):
+    db = next(get_db())
+    doctors = db.query(Doctor).filter(Doctor.specialty.ilike(f"%{specialty}%")).all()
+    return {
+        "doctors": [
+            {
+                "name": f"{doc.first_name} {doc.last_name}",
+                "specialty": doc.specialty,
+                "calendly_30_url": doc.calendly_30,
+                "calendly_60_url": doc.calendly_60,
+            }
+            for doc in doctors
+        ]
+    }

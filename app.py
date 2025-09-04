@@ -9,6 +9,7 @@ dotenv.load_dotenv()
 agent = build_agent_system()
 system_prompt = "You are a helpful medical assistant."
 
+
 def stream_response(message, history):
     msgs = [SystemMessage(system_prompt)]
     for human, ai in history or []:
@@ -21,18 +22,38 @@ def stream_response(message, history):
 
     state_input = {"messages": msgs}
 
-    partial = ""
-    for msg_chunk, _ in agent.stream(
-        state_input,
-        stream_mode="messages",
-    ):
+    for msg_chunk, _ in agent.stream(state_input, stream_mode="messages"):
         content = getattr(msg_chunk, "content", None)
-        if content:
-            partial += content if isinstance(content, str) else str(content)
-            yield partial
+        if not content:
+            continue
 
-    if not partial:
-        yield "No response from agent."
+        # Case 1: doctor scheduling info (tool return)
+        if isinstance(content, dict) and "doctors" in content:
+            doctors = content["doctors"]
+            accordion_blocks = []
+            for doc in doctors:
+                # Instead of `with`, build an Accordion component and append
+                accordion_blocks.append(
+                    gr.Accordion(
+                        f"{doc['name']} — {doc['specialty']}",
+                        open=False,
+                        children=[
+                            gr.Markdown(
+                                f"[30 min]({doc['calendly_30_url']})  |  [60 min]({doc['calendly_60_url']})"
+                            )
+                        ],
+                    )
+                )
+            yield gr.ChatMessage(
+                role="assistant", content="Here are available doctors:"
+            )
+            for block in accordion_blocks:
+                yield gr.ChatMessage(role="assistant", content=block)
+            continue
+
+        # Case 2: normal agent text response
+        if isinstance(content, str):
+            yield gr.ChatMessage(role="assistant", content=content)
 
 
 demo = gr.ChatInterface(
