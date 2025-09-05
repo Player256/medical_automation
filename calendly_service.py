@@ -22,22 +22,12 @@ class CalendlyService:
         return resp.json()["resource"]
 
     def create_event_type(self, owner, doctor_name, duration):
-        """Create a new Calendly event type for a doctor"""
         payload = {
-            "active": True,
             "owner": owner,
             "name": f"{doctor_name} - {duration}min Consultation",
             "kind": "solo",
             "duration": duration,
             "visibility": "public",
-            "locations": [
-                {
-                    "kind": "physical",
-                    "location": "earth",
-                    "additional_info": "string",
-                    "phone_number": "string",
-                }
-            ],
             "locale": "en",
         }
         resp = requests.post(

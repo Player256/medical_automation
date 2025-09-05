@@ -10,15 +10,16 @@ agent = build_agent_system()
 system_prompt = "You are a helpful medical assistant."
 
 
-def stream_response(message, history):
+def interact_with_agent(message, history):
     msgs = [SystemMessage(system_prompt)]
-    for human, ai in history or []:
-        if human:
-            msgs.append(HumanMessage(content=human))
-        if ai:
-            msgs.append(AIMessage(content=ai))
+    for m in history or []:
+        if m["role"] == "user":
+            msgs.append(HumanMessage(content=m["content"]))
+        if m["role"] == "assistant":
+            msgs.append(AIMessage(content=m["content"]))
     if message:
         msgs.append(HumanMessage(content=message))
+        history.append({"role": "user", "content": message})
 
     state_input = {"messages": msgs}
 
@@ -27,42 +28,38 @@ def stream_response(message, history):
         if not content:
             continue
 
-        # Case 1: doctor scheduling info (tool return)
         if isinstance(content, dict) and "doctors" in content:
-            doctors = content["doctors"]
-            accordion_blocks = []
-            for doc in doctors:
-                # Instead of `with`, build an Accordion component and append
-                accordion_blocks.append(
-                    gr.Accordion(
-                        f"{doc['name']} — {doc['specialty']}",
-                        open=False,
-                        children=[
-                            gr.Markdown(
-                                f"[30 min]({doc['calendly_30_url']})  |  [60 min]({doc['calendly_60_url']})"
-                            )
-                        ],
-                    )
-                )
-            yield gr.ChatMessage(
-                role="assistant", content="Here are available doctors:"
+            history.append(
+                {"role": "assistant", "content": "Here are available doctors:"}
             )
-            for block in accordion_blocks:
-                yield gr.ChatMessage(role="assistant", content=block)
+            for doc in content["doctors"]:
+                doc_text = f"{doc['name']} — {doc['specialty']}\n"
+                doc_text += f"[30 min]({doc['calendly_30_url']}) | [60 min]({doc['calendly_60_url']})"
+                history.append({"role": "assistant", "content": doc_text})
+            yield history
             continue
 
-        # Case 2: normal agent text response
         if isinstance(content, str):
-            yield gr.ChatMessage(role="assistant", content=content)
+            history.append({"role": "assistant", "content": content})
+            yield history
 
 
-demo = gr.ChatInterface(
-    fn=stream_response,
-    textbox=gr.Textbox(
-        placeholder="Enter your message here...", container=False, scale=7
-    ),
-    chatbot=gr.Chatbot(),
-    submit_btn="Send",
-)
+with gr.Blocks() as demo:
+    gr.Markdown("# 🏥 Medical Assistant (LangGraph + Gradio)")
+    chatbot = gr.Chatbot(
+        type="messages",
+        label="Assistant",
+        avatar_images=(
+            None,
+            "https://em-content.zobj.net/source/twitter/141/parrot_1f99c.png",
+        ),
+    )
+    input_box = gr.Textbox(
+        placeholder="Enter your message here...",
+        container=False,
+        scale=7,
+    )
+
+    input_box.submit(interact_with_agent, [input_box, chatbot], [chatbot])
 
 demo.launch(share=True, debug=True)
