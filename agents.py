@@ -4,7 +4,7 @@ from langchain_ollama import ChatOllama
 from langgraph.prebuilt import create_react_agent
 from langgraph_supervisor import create_supervisor
 
-from .tools import fetch_patient_record, insert_patient_record, fetch_doctors_by_specialty
+from .tools import fetch_patient_record, insert_patient_record, fetch_doctors_by_specialty, build_calendly_embed
 from .prompts import DB_PROMPT, SCHEDULING_PROMPT, SUPERVISOR_PROMPT
 
 load_dotenv()
@@ -23,7 +23,7 @@ db_agent = create_react_agent(
 
 scheduling_agent = create_react_agent(
     model=llm,
-    tools=[fetch_doctors_by_specialty],
+    tools=[fetch_doctors_by_specialty, build_calendly_embed],
     prompt=SCHEDULING_PROMPT,
     name="Scheduling Agent",
 )

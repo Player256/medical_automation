@@ -1,6 +1,6 @@
-# hey check out john doe dob:1985-2-14 email: john.doe@example.com
-import gradio as gr
+# app.py
 import dotenv
+import gradio as gr
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from .agents import build_agent_system
 
@@ -12,14 +12,14 @@ system_prompt = "You are a helpful medical assistant."
 
 def interact_with_agent(message, history):
     msgs = [SystemMessage(system_prompt)]
-    for m in history or []:
-        if m["role"] == "user":
-            msgs.append(HumanMessage(content=m["content"]))
-        if m["role"] == "assistant":
-            msgs.append(AIMessage(content=m["content"]))
+    for role, content in history:
+        if role == "user":
+            msgs.append(HumanMessage(content=content))
+        elif role == "assistant":
+            msgs.append(AIMessage(content=content))
+
     if message:
         msgs.append(HumanMessage(content=message))
-        history.append({"role": "user", "content": message})
 
     state_input = {"messages": msgs}
 
@@ -28,38 +28,58 @@ def interact_with_agent(message, history):
         if not content:
             continue
 
+        # Case 1: doctors payload
         if isinstance(content, dict) and "doctors" in content:
-            history.append(
-                {"role": "assistant", "content": "Here are available doctors:"}
-            )
+            reply_blocks = []
+
             for doc in content["doctors"]:
-                doc_text = f"{doc['name']} — {doc['specialty']}\n"
-                doc_text += f"[30 min]({doc['calendly_30_url']}) | [60 min]({doc['calendly_60_url']})"
-                history.append({"role": "assistant", "content": doc_text})
-            yield history
+                name = doc.get("name", "Unknown")
+                spec = doc.get("specialty", "")
+                embed_html = doc.get("embed_html")
+
+                if embed_html:
+                    # Render doctor name + specialty + Schedule link
+                    block = f"**{name} — {spec}**\n\n{embed_html}"
+                else:
+                    err = doc.get("error", "No scheduling link available.")
+                    block = f"**{name} — {spec}**\n\n_{err}_"
+
+                reply_blocks.append(block)
+
+            reply = "\n\n".join(reply_blocks)
+            yield reply
             continue
 
+        # Case 2: plain text
         if isinstance(content, str):
-            history.append({"role": "assistant", "content": content})
-            yield history
+            yield content
 
 
-with gr.Blocks() as demo:
-    gr.Markdown("# 🏥 Medical Assistant (LangGraph + Gradio)")
-    chatbot = gr.Chatbot(
+demo = gr.ChatInterface(
+    fn=interact_with_agent,
+    chatbot=gr.Chatbot(
         type="messages",
         label="Assistant",
         avatar_images=(
             None,
             "https://em-content.zobj.net/source/twitter/141/parrot_1f99c.png",
         ),
-    )
-    input_box = gr.Textbox(
+    ),
+    textbox=gr.Textbox(
         placeholder="Enter your message here...",
         container=False,
         scale=7,
-    )
+    ),
+    title="🏥 Medical Assistant (LangGraph + Gradio)",
+    description="Ask about doctors, appointments, or scheduling. Integrated with Calendly.",
+    theme="soft",
+    examples=[
+        ["Book a cardiologist for John Doe dob:1985-02-14 email:john.doe@example.com"],
+        ["Find me a dermatologist"],
+    ],
+    cache_examples=False,
+)
 
-    input_box.submit(interact_with_agent, [input_box, chatbot], [chatbot])
 
-demo.launch(share=True, debug=True)
+if __name__ == "__main__":
+    demo.launch(share=True, debug=True)

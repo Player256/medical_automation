@@ -4,6 +4,9 @@ from sqlalchemy import text
 from langchain_core.tools import tool
 from pydantic import BaseModel
 from .db_connection import get_db
+import re
+import html
+import uuid
 
 
 class PatientInfo(BaseModel):
@@ -113,3 +116,101 @@ def fetch_doctors_by_specialty(specialty: str) -> Dict[str, Any]:
         return {"doctors": doctors}
     except Exception as e:
         return {"error": f"Error fetching doctors: {str(e)}"}
+
+
+CALENDLY_SCRIPT_TAG = '<script src="https://assets.calendly.com/assets/external/widget.js" async></script>'
+
+# @tool
+# def build_calendly_embed(payload: dict) -> dict:
+#     """
+#     Input: {"patient": {...}, "doctors": [ { "name":..., "specialty":..., "calendly_30_url":..., "calendly_60_url":... } ]}
+#     Output: {"patient": {...}, "doctors": [ { ... , "embed_html": "<a ...>Schedule</a>" } ] }
+#     Rules:
+#      - Use patient.patient_type to pick 60 (new) vs 30 (returning).
+#      - Validate that the chosen URL contains 'calendly' (very conservative).
+#      - Do NOT fabricate urls or doctor data.
+#     """
+#     try:
+#         patient = payload.get("patient", {}) or {}
+#         patient_type = (patient.get("patient_type") or "new").lower()
+#         duration_key = "60" if patient_type == "new" else "30"
+
+#         doctors_in = payload.get("doctors", []) or []
+#         doctors_out = []
+
+#         for doc in doctors_in:
+#             # safe copy of existing fields
+#             out = dict(doc)
+#             url = doc.get(f"calendly_{duration_key}_url") or doc.get(f"calendly_{duration_key}")
+#             if not url:
+#                 out["embed_html"] = None
+#                 out["error"] = "missing_calendly_url_for_duration"
+#                 doctors_out.append(out)
+#                 continue
+
+#             # very conservative validation: require substring 'calendly'
+#             if "calendly" not in url.lower():
+#                 out["embed_html"] = None
+#                 out["error"] = "invalid_calendly_url"
+#                 doctors_out.append(out)
+#                 continue
+
+#             # ensure URL is HTML-escaped when injected into attribute
+#             safe_url = html.escape(url, quote=True)
+#             # generate a unique id so multiple widgets/buttons won't clash
+#             uid = uuid.uuid4().hex[:8]
+
+#             # Build a single "Schedule" button which opens Calendly popup using their JS API.
+#             # This approach uses Calendly.initPopupWidget({url: '...'}) and doesn't inject inline <div> widgets.
+#             embed = (
+#                 f'{CALENDLY_SCRIPT_TAG}\n'
+#                 f'<a href="#" '
+#                 f'class="calendly-schedule-button" '
+#                 f'onclick="Calendly.initPopupWidget({{url: \'{safe_url}\'}}); return false;" '
+#                 f'data-doctor-id="{html.escape(str(doc.get("doctor_id", "")), quote=True)}" '
+#                 f'data-duration="{duration_key}" id="cal-btn-{uid}">Schedule</a>'
+#             )
+
+#             out["embed_html"] = embed
+#             doctors_out.append(out)
+
+#         return {"patient": patient, "doctors": doctors_out}
+#     except Exception as e:
+#         return {"error": f"build_calendly_embed_error: {str(e)}"}
+
+
+from langchain_core.tools import tool
+import re
+
+
+@tool
+def build_calendly_embed(payload: dict) -> dict:
+    """
+    Takes {patient, doctors[]} JSON and injects Calendly inline widget HTML
+    for each doctor based on patient_type.
+
+    URL format:
+    https://calendly.com/dattucodes/{doctor-full-name-hyphenated}-{duration}min-consultation-1
+    where duration = 60 if patient_type = 'new', else 30.
+    """
+    patient = payload.get("patient", {})
+    patient_type = (patient.get("patient_type") or "new").lower()
+    duration = "60" if patient_type == "new" else "30"
+
+    doctors_with_embeds = []
+    for doc in payload.get("doctors", []):
+        # doctor full name -> slug (lowercase, hyphenated)
+        name_slug = re.sub(r"[^a-z0-9]+", "-", doc["name"].lower()).strip("-")
+
+        url = (
+            f"https://calendly.com/dattucodes/{name_slug}-{duration}min-consultation-1"
+        )
+
+        embed_html = f"""<!-- Calendly inline widget begin -->
+<div class="calendly-inline-widget" data-url="{url}" style="min-width:320px;height:700px;"></div>
+<script type="text/javascript" src="https://assets.calendly.com/assets/external/widget.js" async></script>
+<!-- Calendly inline widget end -->"""
+
+        doctors_with_embeds.append({**doc, "embed_html": embed_html})
+
+    return {"patient": patient, "doctors": doctors_with_embeds}
